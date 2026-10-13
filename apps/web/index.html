@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QA-Swarm — Control Plane</title>
+    <meta name="description" content="QA-Swarm — an open-source swarm of AI agents that explore apps, generate tests, run them, triage failures, file bugs, and build regression suites." />
+    <style>
+      :root{
+        --bg:#0b0f14; --panel:#131a23; --panel2:#1a232e; --panel3:#222d3a;
+        --border:#24303d; --border2:#2e3d4d;
+        --text:#e6edf3; --dim:#8b98a5; --dim2:#64707d;
+        --green:#3fb950; --red:#f85149; --yellow:#d29922; --blue:#58a6ff; --purple:#bc8cff; --teal:#2dd4bf;
+        --grad:linear-gradient(90deg,#58a6ff,#bc8cff);
+      }
+      *{box-sizing:border-box;margin:0;padding:0}
+      html,body{height:100%}
+      body{font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+      ::-webkit-scrollbar{width:8px;height:8px}
+      ::-webkit-scrollbar-track{background:transparent}
+      ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+      ::-webkit-scrollbar-thumb:hover{background:var(--dim2)}
+      a{color:var(--blue);text-decoration:none}
+
+      /* header */
+      header{
+        position:sticky;top:0;z-index:20;
+        padding:14px 28px;border-bottom:1px solid var(--border);
+        background:linear-gradient(90deg,rgba(88,166,255,.08),rgba(188,140,255,.08)),var(--bg);
+        backdrop-filter:blur(8px);
+        display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+      }
+      .logo{width:34px;height:34px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 16px rgba(88,166,255,.3)}
+      header h1{font-size:17px;font-weight:700;letter-spacing:-.01em}
+      header .tag{color:var(--dim);font-size:11px;border:1px solid var(--border);padding:2px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.05em}
+      .spacer{flex:1}
+      .status-badge{
+        display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+        padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);
+      }
+      .status-badge .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);animation:pulse 1.6s infinite}
+      .status-badge.ok .dot{background:var(--green)} .status-badge.ok{color:var(--green);border-color:rgba(63,185,80,.3)}
+      .status-badge.off .dot{background:var(--red)} .status-badge.off{color:var(--red)}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+      /* agent bar */
+      .agents{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;padding:16px 28px;border-bottom:1px solid var(--border);max-width:1400px;margin:0 auto}
+      .agent{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 8px;text-align:center;transition:transform .15s,border-color .15s}
+      .agent:hover{transform:translateY(-2px)}
+      .agent .ic{font-size:18px}
+      .agent .n{font-size:11px;font-weight:600;margin-top:4px;color:var(--text)}
+      .agent .s{font-size:9px;color:var(--dim2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+      .agent.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(88,166,255,.15)}
+      .agent.active .s{color:var(--blue)}
+      .agent.done{border-color:rgba(63,185,80,.4)}
+      .agent.done .s{color:var(--green)}
+
+      main{max-width:1400px;margin:0 auto;padding:24px 28px 80px}
+      .grid{display:grid;grid-template-columns:1fr;gap:20px}
+      @media(min-width:1100px){.grid{grid-template-columns:1fr 320px}}
+
+      .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+      .card h2{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+      .card h2 .badge{margin-left:auto;font-size:10px;background:var(--panel3);padding:2px 8px;border-radius:999px;color:var(--dim)}
+
+      label{display:block;color:var(--dim);font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+      input,select{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:11px 13px;border-radius:8px;font:inherit;outline:none;transition:border-color .15s}
+      input:focus,select:focus{border-color:var(--blue)}
+      .run-form{display:grid;grid-template-columns:1fr 160px 140px;gap:12px;align-items:end}
+      @media(max-width:640px){.run-form{grid-template-columns:1fr}}
+      button.primary{
+        background:var(--grad);color:#fff;border:0;padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;
+        transition:filter .15s,transform .1s;box-shadow:0 4px 14px rgba(88,166,255,.25);
+      }
+      button.primary:hover{filter:brightness(1.1)} button.primary:active{transform:translateY(1px)} button.primary:disabled{opacity:.5;cursor:not-allowed}
+      .hint{color:var(--dim2);font-size:11px;margin-top:12px}
+      code{background:var(--panel3);padding:1px 5px;border-radius:4px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--teal)}
+
+      /* metrics */
+      .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+      .metric{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px 13px;position:relative;overflow:hidden}
+      .metric::before{content:"";position:absolute;left:0;top:0;width:3px;height:100%;background:var(--blue)}
+      .metric.green::before{background:var(--green)} .metric.red::before{background:var(--red)} .metric.yellow::before{background:var(--yellow)} .metric.purple::before{background:var(--purple)} .metric.teal::before{background:var(--teal)}
+      .metric .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+      .metric .v.green{color:var(--green)} .v.red{color:var(--red)} .v.yellow{color:var(--yellow)} .v.purple{color:var(--purple)} .v.teal{color:var(--teal)}
+      .metric .l{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+
+      /* tables */
+      table{width:100%;border-collapse:collapse;font-size:13px}
+      th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--border)}
+      th{color:var(--dim);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+      tbody tr{transition:background .1s}
+      tbody tr:hover{background:rgba(88,166,255,.04)}
+      .pill{padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700}
+      .pill.passed{background:rgba(63,185,80,.15);color:var(--green)}
+      .pill.failed{background:rgba(248,81,73,.15);color:var(--red)}
+      .pill.flaky{background:rgba(210,153,34,.15);color:var(--yellow)}
+      .pill.quarantined{background:rgba(188,140,255,.15);color:var(--purple)}
+      .pill.product-bug{background:rgba(248,81,73,.15);color:var(--red)}
+      .pill.test-bug,.pill.environment,.pill.unknown{background:rgba(139,152,165,.15);color:var(--dim)}
+      .sev{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px}
+      .sev.high{background:rgba(248,81,73,.2);color:var(--red)} .sev.medium{background:rgba(210,153,34,.2);color:var(--yellow)} .sev.low{background:rgba(63,185,80,.2);color:var(--green)}
+
+      /* log */
+      #log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;max-height:340px;overflow:auto;background:#070a0e;border-radius:8px;padding:14px;color:var(--dim);line-height:1.6}
+      #log div{white-space:pre-wrap}
+      #log .ag{color:var(--blue)} #log .err{color:var(--red)} #log .ok{color:var(--green)}
+      .muted{color:var(--dim)} .dim2{color:var(--dim2)}
+
+      /* runs history */
+      .run-item{padding:11px 13px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:border-color .15s,background .1s}
+      .run-item:hover{border-color:var(--blue);background:var(--panel2)}
+      .run-item.active{border-color:var(--blue);background:rgba(88,166,255,.06)}
+      .run-item .top{display:flex;justify-content:space-between;align-items:center}
+      .run-item .id{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--text)}
+      .run-item .when{font-size:10px;color:var(--dim2)}
+      .run-item .mini{display:flex;gap:10px;margin-top:6px;font-size:11px;color:var(--dim)}
+
+      footer{text-align:center;padding:32px;color:var(--dim2);font-size:12px;border-top:1px solid var(--border);margin-top:24px}
+      footer a{color:var(--blue)}
+      .empty{padding:32px;text-align:center;color:var(--dim2)}
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">🐝</div>
+      <h1>QA-Swarm</h1>
+      <span class="tag">Control Plane</span>
+      <div class="spacer"></div>
+      <span class="status-badge" id="api-status"><span class="dot"></span>checking api…</span>
+    </header>
+
+    <div class="agents" id="agent-bar">
+      <div class="agent" data-agent="explorer"><div class="ic">🧭</div><div class="n">Explorer</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="test-generator"><div class="ic">✨</div><div class="n">Test Gen</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="executor"><div class="ic">▶</div><div class="n">Executor</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="triage"><div class="ic">🔬</div><div class="n">Triage</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="security"><div class="ic">🔒</div><div class="n">Security</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="performance"><div class="ic">⚡</div><div class="n">Perf</div><div class="s">idle</div></div>
+      <div class="agent" data-agent="reporter"><div class="ic">📋</div><div class="n">Reporter</div><div class="s">idle</div></div>
+    </div>
+
+    <main>
+      <div class="card">
+        <h2>New Run <span class="badge" id="run-id"></span></h2>
+        <div class="run-form">
+          <div><label>Target URL or OpenAPI spec</label><input id="target" value="https://example.com" placeholder="https://your-app.dev or ./openapi.json" /></div>
+          <div><label>Kind</label><select id="kind"><option value="web">web</option><option value="openapi">openapi</option><option value="both">both</option></select></div>
+          <div><label>&nbsp;</label><button class="primary" id="start">▶ Start swarm</button></div>
+        </div>
+        <p class="hint" id="hint">Set <code>OPENAI_API_KEY</code> or <code>ANTHROPIC_API_KEY</code> in the API process for a real model. Runs are dry-run by default — pass <code>dryRun:false</code> via the API to execute.</p>
+      </div>
+
+      <div class="grid">
+        <div>
+          <div class="card" id="results-card" style="display:none">
+            <h2>Run Summary <span class="badge" id="run-phase"></span></h2>
+            <div class="metrics" id="metrics"></div>
+          </div>
+
+          <div class="card" id="bugs-card" style="display:none">
+            <h2>Bugs Filed <span class="badge" id="bugs-count"></span></h2>
+            <div style="overflow-x:auto"><table>
+              <thead><tr><th>ID</th><th>Severity</th><th>Title</th><th>Filed to</th></tr></thead>
+              <tbody id="bugs"></tbody>
+            </table></div>
+          </div>
+
+          <div class="card" id="tests-card" style="display:none">
+            <h2>Test Results <span class="badge" id="tests-count"></span></h2>
+            <div style="overflow-x:auto"><table>
+              <thead><tr><th>Test</th><th>Status</th><th>Duration</th><th>Error</th></tr></thead>
+              <tbody id="tests"></tbody>
+            </table></div>
+          </div>
+
+          <div class="card">
+            <h2>Agent Log <span class="badge" id="log-count">0 events</span></h2>
+            <div id="log"><div class="muted">idle — start a run to see live agent activity</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h2>Run History <span class="badge" id="runs-count">0</span></h2>
+            <div id="runs-list"><div class="empty">No runs yet.</div></div>
+          </div>
+          <div class="card">
+            <h2>Architecture</h2>
+            <div style="font-size:12px;color:var(--dim);line-height:1.8">
+              <div>🧭 <b>Explorer</b> — crawls pages &amp; endpoints</div>
+              <div>✨ <b>Test Generator</b> — LLM writes Playwright specs</div>
+              <div>▶ <b>Executor</b> — runs + self-heals locators</div>
+              <div>🔬 <b>Triage</b> — classifies failures (product/test/flaky)</div>
+              <div>🔒 <b>Security</b> — OWASP-style headers &amp; findings</div>
+              <div>⚡ <b>Performance</b> — p95/p99 budget checks</div>
+              <div>📋 <b>Reporter</b> — markdown + JUnit + regression suite</div>
+              <div style="margin-top:8px;color:var(--dim2)">Built on LangGraph · Qdrant · Postgres · Playwright</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>QA-Swarm · open-source "Devin for QA" · <a href="https://github.com/Vaskoor/qa-swarm">GitHub</a> · Apache-2.0</footer>
+
+    <script>
+      const API = location.origin.replace(/:\d+$/, "") + ":4317";
+      const SUFFIX = location.port === "4317" ? "" : ":4317";
+      const BASE = location.origin.replace(/:\d+$/, "") + SUFFIX;
+      let pollTimer, historyTimer;
+
+      const AGENTS = ["explorer","test-generator","executor","triage","security","performance","reporter"];
+
+      function setAgentState(name, state){
+        const el = document.querySelector(`.agent[data-agent="${name}"]`);
+        if(!el) return;
+        el.classList.remove("active","done");
+        if(state === "active") el.classList.add("active");
+        else if(state === "done") el.classList.add("done");
+        el.querySelector(".s").textContent = state || "idle";
+      }
+
+      async function checkApi(){
+        try{
+          const r = await fetch(`${BASE}/health`); const j = await r.json();
+          const el = document.getElementById("api-status");
+          el.className = "status-badge ok"; el.innerHTML = `<span class="dot"></span>api ok · ${j.runs} run(s)`;
+        }catch{
+          const el = document.getElementById("api-status");
+          el.className = "status-badge off"; el.innerHTML = `<span class="dot"></span>api offline`;
+        }
+      }
+
+      async function loadHistory(){
+        try{
+          const r = await fetch(`${BASE}/runs`); const runs = await r.json();
+          const el = document.getElementById("runs-list");
+          document.getElementById("runs-count").textContent = runs.length;
+          if(!runs.length){ el.innerHTML = '<div class="empty">No runs yet.</div>'; return; }
+          el.innerHTML = runs.slice(0,12).map(r => `
+            <div class="run-item" data-rid="${r.id}">
+              <div class="top"><span class="id">${r.id}</span><span class="when">${r.status}</span></div>
+              <div class="mini"><span>${r.tests||0} tests</span><span>${r.bugs||0} bugs</span><span class="muted">${(r.startedAt||"").slice(11,19)}</span></div>
+            </div>`).join("");
+          el.querySelectorAll(".run-item").forEach(i => i.addEventListener("click", () => poll(i.dataset.rid)));
+        }catch{}
+      }
+
+      document.getElementById("start").addEventListener("click", async () => {
+        const target = document.getElementById("target").value.trim();
+        const kind = document.getElementById("kind").value;
+        if(!target) return;
+        const btn = document.getElementById("start");
+        btn.disabled = true; btn.textContent = "Starting…";
+        AGENTS.forEach(a => setAgentState(a, "idle"));
+        try{
+          const res = await fetch(`${BASE}/runs`, { method:"POST", headers:{"content-type":"application/json"},
+            body: JSON.stringify({ target, targetKind: kind, baseUrl: kind === "openapi" ? undefined : target, dryRun: true }) });
+          const { id } = await res.json();
+          document.getElementById("run-id").textContent = id;
+          document.getElementById("results-card").style.display = "block";
+          poll(id);
+        }catch(e){ alert("Failed to start run: " + e.message); }
+        finally{ btn.disabled = false; btn.textContent = "▶ Start swarm"; }
+      });
+
+      async function poll(id){
+        clearTimeout(pollTimer);
+        try{
+          const res = await fetch(`${BASE}/runs/${id}`); const run = await res.json();
+          render(run);
+          if(run.status === "running") pollTimer = setTimeout(() => poll(id), 1500);
+          else loadHistory();
+        }catch{ pollTimer = setTimeout(() => poll(id), 3000); }
+      }
+
+      function render(run){
+        const s = run.summary;
+        const log = document.getElementById("log");
+        const logs = run.logs || [];
+        document.getElementById("log-count").textContent = logs.length + " events";
+        // update agent states from log
+        const lastByAgent = {};
+        logs.forEach(l => { lastByAgent[l.agent] = l.message; });
+        AGENTS.forEach(a => {
+          if(lastByAgent[a] !== undefined){
+            // heuristic: if message mentions "done"/"finished"/"ready" → done, else active
+            setAgentState(a, /done|finished|ready|triaged|filed|reported|complete/i.test(lastByAgent[a]) ? "done" : "active");
+          }
+        });
+        log.innerHTML = logs.slice(-140).map(l => {
+          const cls = /error|fail/i.test(l.message) ? "err" : (/pass|ok|done|ready/i.test(l.message) ? "ok" : "");
+          return `<div><span class="ag">[${(l.at||"").slice(11,19)}] ${l.agent.padEnd(14)}</span> ${escapeHtml(l.message)}</div>`;
+        }).join("") || '<div class="muted">waiting for agents…</div>';
+        log.scrollTop = log.scrollHeight;
+
+        if(!s) return;
+        document.getElementById("run-phase").textContent = s.phase || run.status;
+        document.getElementById("metrics").innerHTML = [
+          m("pages", s.pages, "teal"), m("endpoints", s.endpoints, "teal"),
+          m("tests", s.tests, ""), m("passed", s.passed, "green"),
+          m("failed", s.failed, s.failed ? "red" : ""),
+          m("bugs", s.bugs, s.bugs ? "red" : ""),
+          m("security", s.securityFindings, s.securityFindings ? "yellow" : ""),
+          m("perf", s.performanceFindings, s.performanceFindings ? "yellow" : ""),
+          m("gaps", s.coverageGaps, ""),
+          m("llm calls", s.usage?.llmCalls ?? 0, "purple"),
+        ].join("");
+
+        if(run.bugs?.length){
+          document.getElementById("bugs-card").style.display = "block";
+          document.getElementById("bugs-count").textContent = run.bugs.length;
+          document.getElementById("bugs").innerHTML = run.bugs.map(b =>
+            `<tr><td><code>${b.id}</code></td><td><span class="sev ${b.severity}">${b.severity}</span></td><td>${escapeHtml(b.title)}</td><td class="muted">${b.externalRef || b.target || "—"}</td></tr>`).join("");
+        }
+        if(run.results?.length){
+          document.getElementById("tests-card").style.display = "block";
+          document.getElementById("tests-count").textContent = run.results.length;
+          document.getElementById("tests").innerHTML = run.results.slice(0,100).map(r =>
+            `<tr><td>${escapeHtml(r.title)}</td><td><span class="pill ${r.status}">${r.status}</span></td><td class="muted">${r.durationMs}ms</td><td class="muted">${escapeHtml((r.error||"").slice(0,80))}</td></tr>`).join("");
+        }
+      }
+
+      function m(l,v,cls){ return `<div class="metric ${cls}"><div class="v ${cls}">${v ?? 0}</div><div class="l">${l}</div></div>`; }
+      function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+
+      checkApi(); setInterval(checkApi, 10000);
+      loadHistory(); setInterval(loadHistory, 8000);
+    </script>
+  </body>
+</html>

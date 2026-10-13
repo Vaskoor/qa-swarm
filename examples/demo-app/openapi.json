@@ -1,0 +1,76 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "QA-Swarm Demo API", "version": "1.0.0" },
+  "servers": [{ "url": "http://localhost:4318" }],
+  "paths": {
+    "/api/users": {
+      "get": {
+        "summary": "List users",
+        "operationId": "listUsers",
+        "tags": ["users"],
+        "responses": {
+          "200": {
+            "description": "A list of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "email": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "summary": "List products",
+        "operationId": "listProducts",
+        "tags": ["products"],
+        "responses": {
+          "200": {
+            "description": "A list of products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "name": { "type": "string" },
+                      "price": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/slow": {
+      "get": {
+        "summary": "A slow endpoint",
+        "operationId": "slow",
+        "tags": ["perf"],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "health",
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}

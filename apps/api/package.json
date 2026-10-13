@@ -1,0 +1,13 @@
+{
+  "name": "@qa-swarm/api",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@qa-swarm/core": "*",
+    "express": "^4.21.2"
+  }
+}

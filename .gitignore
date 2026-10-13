@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.tsbuildinfo
+*.tsbuildinfo
+qa-swarm-out/
+qa-out/
+test-results/
+playwright-report/
+.env
+.DS_Store
+coverage/
+*.log
+# backups
+*.bak
