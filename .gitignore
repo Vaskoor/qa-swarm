@@ -12,3 +12,12 @@ coverage/
 *.log
 # backups
 *.bak
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
